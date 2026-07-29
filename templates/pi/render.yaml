@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: pi-agent-server
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    disk:
+      name: pi-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: LITELLM_BASE_URL
+        sync: false
+      - key: LITELLM_API_KEY
+        sync: false
+      - key: RUNTIME_API_KEY
+        generateValue: true
+      - key: DEFAULT_MODEL
+        value: claude-sonnet-4-6
+      - key: PI_MODEL_API
+        value: anthropic-messages

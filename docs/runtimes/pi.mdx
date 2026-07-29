@@ -1,0 +1,87 @@
+---
+title: "Pi Agent Core"
+description: "Run agents on Pi, the minimal TypeScript agent harness, embedded in-process."
+---
+
+[Pi Agent Core](https://www.npmjs.com/package/@earendil-works/pi-agent-core) is a
+minimal, runtime-agnostic TypeScript agent harness — the agent loop, tool
+execution, state management, and event streaming — with no provider coupling. It
+is the harness underneath OpenClaw and the Flue framework.
+
+```text
+LAP -> pi-agent-server :8080 -> (in-process Pi agent loop) -> LAP /v1/messages -> your gateway
+```
+
+Because Pi is a **library rather than a CLI**, the `templates/pi` server embeds
+the agent loop directly. There is no child runtime process, so this template has
+no runtime health probe, no reboot-on-agent-create, and no generated on-disk
+runtime config — creating an agent writes a SQLite row, and a session constructs
+an `Agent` in memory.
+
+## Prerequisites
+
+Docker, and a running LAP instance whose gateway the runtime can reach.
+
+## Run it
+
+```bash
+cd templates/pi
+docker build -t pi-agent-server .
+docker run --rm -p 8080:8080 \
+  -v pi-agent-data:/data \
+  -e LITELLM_BASE_URL=http://host.docker.internal:4000/v1 \
+  -e LITELLM_API_KEY=sk-local \
+  -e LITELLM_MODELS=gemini-2.5-flash \
+  -e DEFAULT_MODEL=gemini-2.5-flash \
+  -e RUNTIME_API_KEY=local-pi-key \
+  pi-agent-server
+```
+
+```bash
+curl http://localhost:8080/health
+# {"ok":true,"pi":true,"sessions":0}
+```
+
+## Register it
+
+```bash
+curl -X POST http://localhost:4000/api/runtime-harnesses \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"alias":"local-pi","api_spec":"claude_managed_agents",
+       "api_base":"http://pi:8080","api_key":"local-pi-key"}'
+```
+
+Then pick **local-pi** as the runtime when running an agent.
+
+## Model routing
+
+`PI_MODEL_API` selects the pi-ai wire API. Keep the default
+`anthropic-messages` when pointing at LAP: LAP serves `/v1/messages` and
+`/v1/responses` but **not** `/v1/chat/completions`, so an
+`openai-completions` client lands on LAP's static-file fallback and gets `405`.
+
+`LITELLM_BASE_URL` keeps its `/v1` suffix for model discovery
+(`{base}/models`), and the template strips it before handing the base URL to
+pi-ai, which appends provider paths itself. A doubled `/v1/v1/messages` would
+404 upstream.
+
+## Tools
+
+`bash`, `read`, `write`, `edit`, `glob`, `grep` — ids match LAP's agent builder,
+so the tool checkboxes map 1:1. File tools are confined to `WORKDIR`.
+
+<Warning>
+The `bash` tool runs model-authored commands through a shell by design, so the
+isolation boundary is the container, not argument escaping. Run the image without
+ambient cloud credentials, and omit `bash` for untrusted prompts.
+</Warning>
+
+## Session history
+
+Every translated event is persisted to SQLite, so unlike the v1 templates that
+stub it, `GET /v1/sessions/:id/events` returns real history and the SSE stream
+replays it before going live — a late subscriber still sees the whole run.
+
+See [`templates/pi/README.md`](https://github.com/LiteLLM-Labs/litellm-agent-control-plane/blob/main/templates/pi/README.md)
+for the full environment reference.

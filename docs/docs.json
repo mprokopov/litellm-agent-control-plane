@@ -112,6 +112,7 @@
               "runtimes/deepagents",
               "runtimes/pydantic-deepagents",
               "runtimes/openclaw",
+              "runtimes/pi",
               "runtimes/elastic-runtime"
             ]
           },

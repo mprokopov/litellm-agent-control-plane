@@ -39,6 +39,14 @@
       "path": "templates/openclaw",
       "default_alias": "openclaw",
       "api_spec": "claude_managed_agents"
+    },
+    {
+      "id": "pi",
+      "name": "Pi Agent Core",
+      "description": "Pi Agent Core embedded in-process and exposed through the Anthropic Managed Agents API.",
+      "path": "templates/pi",
+      "default_alias": "pi",
+      "api_spec": "claude_managed_agents"
     }
   ]
 }
